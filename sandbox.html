@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>沙盒</title>
+<script src="sfx.js"></script>
 <style>
 body{margin:0;min-height:100vh;display:flex;flex-direction:column;align-items:center;background:#2b2118;font-family:system-ui;color:#f5e6c8;padding:10px}
 #status{font-size:15px;color:#ffd166;text-align:center;margin:4px 0}
@@ -18,10 +19,10 @@ button{padding:6px 14px;border:none;border-radius:4px;color:#fff;font-size:14px;
 button:disabled{background:#555!important}
 #box{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:8px;background:#3a2c1f;width:100%;box-sizing:border-box}
 .row{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
-.row button{width:38px;height:38px;border-radius:50%;font-weight:bold;font-size:18px;font-family:"KaiTi", "STKaiti", "SimSun", serif;background:#f8e6bd;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;transition:.1s}
+.row button{width:38px;height:38px;border-radius:50%;font-weight:bold;font-size:18px;font-family:"KaiTi";background:#f8e6bd;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;transition:.1s}
 .row button.sel{box-shadow:0 0 0 3px #f1c40f;transform:scale(1.1)}
 .red{color:#b3261e}.blk{color:#111}
-#del{background:#555;border-radius:4px;font-size:14px;width:100%;height:32px;font-family:"Microsoft YaHei", sans-serif;}
+#del{background:#555;border-radius:4px;font-size:14px;width:100%;height:32px}
 </style>
 </head>
 <body>
@@ -41,27 +42,12 @@ button:disabled{background:#555!important}
 <button onclick="location.href='index.html'" style="background:#555">返回</button>
 </div>
 <div id="box">
-  <!-- 红方一排 -->
   <div class="row" id="redRow">
-    <button class="red" data-c="r" data-t="K">帅</button>
-    <button class="red" data-c="r" data-t="A">仕</button>
-    <button class="red" data-c="r" data-t="B">相</button>
-    <button class="red" data-c="r" data-t="N">傌</button>
-    <button class="red" data-c="r" data-t="R">俥</button>
-    <button class="red" data-c="r" data-t="C">炮</button>
-    <button class="red" data-c="r" data-t="P">兵</button>
+    <button class="red" data-c="r" data-t="K">帅</button><button class="red" data-c="r" data-t="A">仕</button><button class="red" data-c="r" data-t="B">相</button><button class="red" data-c="r" data-t="N">傌</button><button class="red" data-c="r" data-t="R">俥</button><button class="red" data-c="r" data-t="C">炮</button><button class="red" data-c="r" data-t="P">兵</button>
   </div>
-  <!-- 黑方一排 -->
   <div class="row" id="blkRow">
-    <button class="blk" data-c="b" data-t="K">将</button>
-    <button class="blk" data-c="b" data-t="A">士</button>
-    <button class="blk" data-c="b" data-t="B">象</button>
-    <button class="blk" data-c="b" data-t="N">馬</button>
-    <button class="blk" data-c="b" data-t="R">車</button>
-    <button class="blk" data-c="b" data-t="C">砲</button>
-    <button class="blk" data-c="b" data-t="P">卒</button>
+    <button class="blk" data-c="b" data-t="K">将</button><button class="blk" data-c="b" data-t="A">士</button><button class="blk" data-c="b" data-t="B">象</button><button class="blk" data-c="b" data-t="N">馬</button><button class="blk" data-c="b" data-t="R">車</button><button class="blk" data-c="b" data-t="C">砲</button><button class="blk" data-c="b" data-t="P">卒</button>
   </div>
-  <!-- 删除按钮 -->
   <button id="del">删 除 棋 子</button>
 </div>
 </div>
@@ -69,9 +55,7 @@ button:disabled{background:#555!important}
 <script>
 (()=>{
 const C=9,R=10,S=50,M=30,RED='r',BLK='b',ANIM=200;
-const sfxM=new Audio('move.mp3'),sfxC=new Audio('capture.mp3'),sfxK=new Audio('check.mp3'),sfxW=new Audio('win.mp3');
-let curA=null;
-const pS=a=>{if(curA&&curA!==a){curA.pause();curA.currentTime=0}try{a.currentTime=0;a.play().catch(()=>{});curA=a}catch(e){}};
+const pS=n=>SFX.play(n);
 const NM={r:{K:'帅',A:'仕',B:'相',N:'傌',R:'俥',C:'炮',P:'兵'},b:{K:'将',A:'士',B:'象',N:'馬',R:'車',C:'砲',P:'卒'}};
 const cv=document.getElementById('c'),ctx=cv.getContext('2d'),st=document.getElementById('status'),uB=document.getElementById('uB');
 let bd,tr,sB,mS,gO,wN,an=false,aD=null,hs=[],md='edit',pP=null,mds=[];
@@ -113,17 +97,13 @@ else{let d2=[];if(m.moveType==='orthogonal')d2=d;else if(m.moveType==='diagonal'
 }
 return mvs;
 }
-
 function fK(b,col){for(let r=0;r<R;r++)for(let c=0;c<C;c++){const p=b[r][c];if(p&&p.color===col&&p.type==='K')return[r,c]}return null}
-
 function iC(b,col){
 const k=fK(b,col);if(!k)return true;const[kr,kc]=k,en=col===RED?BLK:RED,ek=fK(b,en);
 if(ek){const[er,ec]=ek;if(ec===kc){let bl=false,st=Math.min(kr,er)+1,ed=Math.max(kr,er);for(let r=st;r<ed;r++)if(b[r][kc]){bl=true;break}if(!bl)return true}}
 for(let r=0;r<R;r++)for(let c=0;c<C;c++){const p=b[r][c];if(!p||p.color!==en)continue;if(getP(b,r,c).some(([mr,mc])=>mr===kr&&mc===kc))return true}return false;
 }
-
 function gL(b,r,c){const p=b[r][c];if(!p)return[];const res=[];for(const[nr,nc]of getP(b,r,c)){const cap=b[nr][nc];b[nr][nc]=p;b[r][c]=null;if(!iC(b,p.color))res.push([nr,nc]);b[r][c]=p;b[nr][nc]=cap}return res}
-
 function clk(r,c){
 if(an||!inB(r,c))return;
 if(md==='edit'){if(pP==='del')bd[r][c]=null;else if(pP)bd[r][c]={type:pP.type,color:pP.color};dr();return}
@@ -138,7 +118,6 @@ sB=null;mS=[];dr();return;
 }
 if(p&&p.color===tr){sB={r,c};mS=gL(bd,r,c);dr()}
 }
-
 function stA(p,f,t,cap){
 an=true;aD={p,f,t,cap,sT:performance.now()};bd[f.r][f.c]=null;
 function stp(now){
@@ -148,7 +127,6 @@ else{bd[aD.t.r][aD.t.c]=aD.p;an=false;aD=null;fnM(p,t,cap)}
 }
 requestAnimationFrame(stp);
 }
-
 function fnM(mv,t,cap){
 let w=false;
 if(cap&&cap.type==='K')w=true;
@@ -156,18 +134,16 @@ else{
 tr=tr===RED?BLK:RED;let oM=0;
 for(let r=0;r<R;r++)for(let c=0;c<C;c++){const p=bd[r][c];if(p&&p.color===tr)oM+=gL(bd,r,c).length}
 const ck=iC(bd,tr);
-if(oM===0)w=true;else if(ck)pS(sfxK);else if(cap)pS(sfxC);else pS(sfxM);
+if(oM===0)w=true;else if(ck)pS('check');else if(cap)pS('capture');else pS('move');
 }
-if(w){gO=true;wN=mv.color;pS(sfxW)}
+if(w){gO=true;wN=mv.color;pS('win')}
 dr();
 }
-
 function und(){
 if(hs.length===0||an)return;
 const l=hs.pop();bd[l.f.r][l.f.c]=l.p;bd[l.t.r][l.t.c]=l.c;
 tr=l.tB;gO=false;wN=null;sB=null;mS=[];uB.disabled=hs.length===0;dr();
 }
-
 function drB(){
 ctx.clearRect(0,0,cv.width,cv.height);ctx.fillStyle='#e9c98b';ctx.fillRect(0,0,cv.width,cv.height);
 const l=M,t=M,r=M+(C-1)*S,b=M+(R-1)*S;
@@ -178,7 +154,6 @@ ctx.beginPath();ctx.moveTo(l+3*S,t);ctx.lineTo(l+5*S,t+2*S);ctx.moveTo(l+5*S,t);
 ctx.fillStyle='rgba(90,58,26,.65)';ctx.font='18px "KaiTi",serif';ctx.textAlign='center';ctx.textBaseline='middle';
 ctx.fillText('楚  河',l+2*S,t+4.5*S);ctx.fillText('汉  界',l+6*S,t+4.5*S);
 }
-
 function drP(x,y,p){
 const rad=S*0.42;
 ctx.beginPath();ctx.arc(x,y,rad,0,Math.PI*2);ctx.fillStyle='#f8e6bd';ctx.fill();
@@ -187,7 +162,6 @@ if(mds.some(m=>m.id===p.type)){ctx.strokeStyle=p.color===RED?'#ff8c00':'#5a3a1a'
 ctx.beginPath();ctx.arc(x,y,rad-3,0,Math.PI*2);ctx.strokeStyle=p.color===RED?'rgba(179,38,30,.45)':'rgba(34,34,34,.35)';ctx.lineWidth=1;ctx.stroke();
 ctx.fillStyle=p.color===RED?'#b3261e':'#111';ctx.font=`bold ${Math.floor(S*0.48)}px "KaiTi",serif`;ctx.fillText(NM[p.color][p.type],x,y+1);
 }
-
 function dr(){
 drB();
 for(let r=0;r<R;r++)for(let c=0;c<C;c++){const p=bd[r][c];if(p)drP(M+c*S,M+r*S,p)}
@@ -208,7 +182,6 @@ if(md==='edit')return;
 if(gO){st.textContent=wN===RED?'红方胜！':'黑方胜！';return}
 let txt=`轮到 ${tr===RED?'红':'黑'}`;if(iC(bd,tr))txt+=' · 将军！';st.textContent=txt;
 }
-
 cv.addEventListener('click',e=>{
 if(an)return;
 const rect=cv.getBoundingClientRect(),x=(e.clientX-rect.left)*(cv.width/rect.width),y=(e.clientY-rect.top)*(cv.height/rect.height);
@@ -217,14 +190,12 @@ if(!inB(r,c))return;
 if(Math.hypot(x-(M+c*S),y-(M+r*S))>S*0.55)return;
 clk(r,c);
 });
-
 document.getElementById('box').addEventListener('click',e=>{
 if(e.target.tagName!=='BUTTON')return;
 document.querySelectorAll('#box button').forEach(b=>b.classList.remove('sel'));
 e.target.classList.add('sel');
 if(e.target.id==='del')pP='del';else pP={color:e.target.dataset.c,type:e.target.dataset.t};
 });
-
 document.getElementById('sB').addEventListener('click',()=>{
 let rK=0,bK=0;
 for(let r=0;r<R;r++)for(let c=0;c<C;c++){const p=bd[r][c];if(p&&p.type==='K'){if(p.color===RED)rK++;else bK++}}
@@ -234,10 +205,8 @@ md='play';tr=RED;gO=false;sB=null;mS=[];hs=[];uB.disabled=true;
 document.querySelectorAll('#box button').forEach(b=>b.classList.remove('sel'));
 pP=null;dr();st.textContent='开始对战！';
 });
-
 document.getElementById('cB').addEventListener('click',init);
 uB.addEventListener('click',und);
-
 document.getElementById('mF').addEventListener('change',e=>{
 const fs=e.target.files;if(!fs.length)return;
 for(let i=0;i<fs.length;i++){
@@ -259,7 +228,6 @@ rd.readAsText(f);
 }
 e.target.value='';
 });
-
 init();
 })();
 </script>

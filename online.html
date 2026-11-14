@@ -4,18 +4,19 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>联机对战</title>
-<style>
-body{margin:0;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#2b2118;font-family:system-ui,"Microsoft YaHei",sans-serif;color:#f5e6c8}#status{min-height:24px;margin:6px 0;font-size:16px;color:#ffd166}canvas{background:#e9c98b;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.5);max-width:96vw;height:auto;touch-action:manipulation}.controls{margin:12px 0 20px;display:flex;gap:12px}button{padding:8px 24px;border:none;border-radius:6px;background:#c0392b;color:white;font-size:15px;cursor:pointer}button:disabled{background:#555;cursor:not-allowed}#undoBtn{background:#2980b9}#menuBtn{background:#27ae60}#lobby,#waiting{display:flex;flex-direction:column;align-items:center;gap:20px;background:#3a2c1f;padding:30px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.5);margin-bottom:20px}#roomInput{padding:10px;font-size:16px;border-radius:6px;border:1px solid #5a3a1a;width:200px;text-align:center}
-</style>
 <script src="mqtt.min.js"></script>
+<script src="sfx.js"></script>
+<style>
+body{margin:0;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#2b2118;font-family:system-ui;color:#f5e6c8}#status{min-height:24px;margin:6px 0;font-size:16px;color:#ffd166}canvas{background:#e9c98b;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.5);max-width:96vw;height:auto;touch-action:manipulation}.controls{margin:12px 0 20px;display:flex;gap:12px}button{padding:8px 24px;border:none;border-radius:6px;background:#c0392b;color:white;font-size:15px;cursor:pointer}button:disabled{background:#555}#undoBtn{background:#2980b9}#menuBtn{background:#27ae60}#lobby,#waiting{display:flex;flex-direction:column;align-items:center;gap:20px;background:#3a2c1f;padding:30px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.5);margin-bottom:20px}#roomInput{padding:10px;font-size:16px;border-radius:6px;border:1px solid #5a3a1a;width:200px;text-align:center}
+</style>
 </head>
 <body>
-<h1 id="title">中国象棋 · 联机对战</h1>
+<h1 id="title">联机对战</h1>
 <div id="lobby">
 <input id="roomInput" placeholder="输入房间号(暗号)" maxlength="20">
 <button id="createBtn" style="background:#27ae60">创建房间 (红方)</button>
 <button id="joinBtn" style="background:#2980b9">加入房间 (黑方)</button>
-<button onclick="window.location.href='index.html'" style="background:#c0392b">返回主菜单</button>
+<button onclick="location.href='index.html'" style="background:#555">返回菜单</button>
 </div>
 <div id="waiting" style="display:none">
 <h2 id="waitText">正在连接服务器...</h2>
@@ -25,16 +26,12 @@ body{margin:0;min-height:100vh;display:flex;flex-direction:column;align-items:ce
 <div id="gameArea" style="display:none;flex-direction:column;align-items:center;">
 <div id="status"></div>
 <canvas id="board" width="560" height="620"></canvas>
-<div class="controls"><button id="undoBtn">请求悔棋</button><button id="restartBtn" style="display:none">重新开始(房主)</button><button id="exitBtn" style="background:#c0392b">退出房间</button></div>
+<div class="controls"><button id="undoBtn">请求悔棋</button><button id="restartBtn" style="display:none">重新开始(房主)</button><button id="exitBtn" style="background:#555">退出房间</button></div>
 </div>
 <script>
 (()=>{
 const COLS=9,ROWS=10,CELL=60,MARGIN=40,RED='r',BLACK='b',ANIM=200;
-const myId=Math.random().toString(36).substring(2); // 唯一标识，防止收到自己的消息
-const sfxMove=new Audio('move.mp3'),sfxCapture=new Audio('capture.mp3'),sfxCheck=new Audio('check.mp3'),sfxWin=new Audio('win.mp3');
-sfxMove.preload='auto';sfxCapture.preload='auto';sfxCheck.preload='auto';sfxWin.preload='auto';
-let currentAudio=null;
-function playSfx(audio){if(currentAudio&&currentAudio!==audio){currentAudio.pause();currentAudio.currentTime=0;}try{audio.currentTime=0;audio.play().catch(()=>{});currentAudio=audio;}catch(e){}}
+const myId=Math.random().toString(36).substring(2);
 const NAMES={r:{K:'帅',A:'仕',B:'相',N:'傌',R:'俥',C:'炮',P:'兵'},b:{K:'将',A:'士',B:'象',N:'馬',R:'車',C:'砲',P:'卒'}};
 const canvas=document.getElementById('board'),ctx=canvas.getContext('2d'),statusEl=document.getElementById('status');
 let board,turn,selected,legalMoves,gameOver,winner,animating=false,animData=null;
@@ -79,13 +76,8 @@ for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const p=b[r][c];if(!p||p.color!==
 return false;
 }
 function getLegalMoves(b,r,c){
-const p=b[r][c];if(!p)return[];
-const res=[];
-for(const[nr,nc]of getPseudoMoves(b,r,c)){
-const cap=b[nr][nc];b[nr][nc]=p;b[r][c]=null;
-if(!isInCheck(b,p.color))res.push([nr,nc]);
-b[r][c]=p;b[nr][nc]=cap;
-}
+const p=b[r][c];if(!p)return[];const res=[];
+for(const[nr,nc]of getPseudoMoves(b,r,c)){const cap=b[nr][nc];b[nr][nc]=p;b[r][c]=null;if(!isInCheck(b,p.color))res.push([nr,nc]);b[r][c]=p;b[nr][nc]=cap;}
 return res;
 }
 function handleClick(r,c){
@@ -93,27 +85,20 @@ if(gameOver||animating||turn!==myColor||!inBoard(r,c))return;
 const p=board[r][c];
 if(selected){
 if(p&&p.color===turn){selected={r,c};legalMoves=getLegalMoves(board,r,c);draw();return;}
-if(legalMoves.some(([mr,mc])=>mr===r&&mc===c)){
-const from=selected,to={r,c};
-selected=null;legalMoves=[];
-client.publish(roomTopic,JSON.stringify({type:'move',from,to,sender:myId}));
-executeMove(from,to);
-return;
-}
+if(legalMoves.some(([mr,mc])=>mr===r&&mc===c)){const from=selected,to={r,c};selected=null;legalMoves=[];client.publish(roomTopic,JSON.stringify({type:'move',from,to,sender:myId}));executeMove(from,to);return;}
 selected=null;legalMoves=[];draw();return;
 }
 if(p&&p.color===turn){selected={r,c};legalMoves=getLegalMoves(board,r,c);draw();}
 }
 function executeMove(from,to){
-if(!board[from.r]||!board[from.r][from.c])return; // 防止二次执行报错
+if(!board[from.r]||!board[from.r][from.c])return;
 selected=null;legalMoves=[];
 const moving=board[from.r][from.c],cap=board[to.r][to.c];
 history.push({from:{...from},to:{...to},piece:{...moving},captured:cap?{...cap}:null,turnBefore:turn});
 startMoveAnimation(moving,from,to,cap);
 }
 function startMoveAnimation(piece,from,to,cap){
-animating=true;animData={piece,from,to,cap,startTime:performance.now()};
-board[from.r][from.c]=null;
+animating=true;animData={piece,from,to,cap,startTime:performance.now()};board[from.r][from.c]=null;
 function step(now){
 if(!animating)return;
 if(now-animData.startTime<ANIM){draw();requestAnimationFrame(step);}
@@ -126,62 +111,42 @@ let isWin=false;
 if(cap&&cap.type==='K'){isWin=true;}
 else{
 turn=turn===RED?BLACK:RED;
-const oppMoves=[];for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const p=board[r][c];if(p&&p.color===turn)for(const[nr,nc]of getLegalMoves(board,r,c))oppMoves.push(1);}
-const checked=isInCheck(board,turn);
+const oppMoves=getAllLegalMoves(board,turn),checked=isInCheck(board,turn);
 if(oppMoves.length===0){isWin=true;}
-else if(checked){playSfx(sfxCheck);}
-else if(cap){playSfx(sfxCapture);}
-else{playSfx(sfxMove);}
+else if(checked){SFX.play('check');}
+else if(cap){SFX.play('capture');}
+else{SFX.play('move');}
 }
-if(isWin){gameOver=true;winner=moving.color;playSfx(sfxWin);}
+if(isWin){gameOver=true;winner=moving.color;SFX.play('win');}
 draw();
 }
+function getAllLegalMoves(b,color){
+const all=[];
+for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const p=b[r][c];if(p&&p.color===color)for(const[nr,nc]of getLegalMoves(b,r,c))all.push({from:[r,c],to:[nr,nc]});}
+return all;
+}
 function setupMQTT(topic,isCreator){
-roomTopic=topic;
-client=mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+roomTopic=topic;client=mqtt.connect('wss://broker.emqx.io:8084/mqtt');
 document.getElementById('waitText').textContent='正在连接公共服务器...';
 client.on('connect',()=>{
 client.subscribe(topic);
-if(isCreator){
-document.getElementById('waitText').textContent='等待对手加入...';
-}else{
-document.getElementById('waitText').textContent='正在加入房间...';
-client.publish(topic,JSON.stringify({type:'join',sender:myId}));
-}
+if(isCreator){document.getElementById('waitText').textContent='等待对手加入...';}
+else{document.getElementById('waitText').textContent='正在加入房间...';client.publish(topic,JSON.stringify({type:'join',sender:myId}));}
 });
 client.on('message',(t,msg)=>{
 const data=JSON.parse(msg.toString());
-if(data.sender===myId)return; // 忽略自己发的消息，彻底杜绝残影Bug
-if(data.type==='join'&&isCreator){
-client.publish(topic,JSON.stringify({type:'start',sender:myId}));
-initBoard();
-}else if(data.type==='start'&&!isCreator){
-initBoard();
-}else if(data.type==='move'){
-executeMove(data.from,data.to);
-}else if(data.type==='undo_req'){
-if(confirm('对方请求悔棋，是否同意？')){
-client.publish(topic,JSON.stringify({type:'undo_agree',sender:myId}));
-doUndo();
-}
-}else if(data.type==='undo_agree'){
-doUndo();
-}else if(data.type==='restart_req'){
-if(confirm('房主重新开始了游戏')){
-initBoard();
-}
-}else if(data.type==='exit'){
-alert('对方已退出房间');
-window.location.reload();
-}
+if(data.sender===myId)return;
+if(data.type==='join'&&isCreator){client.publish(topic,JSON.stringify({type:'start',sender:myId}));initBoard();}
+else if(data.type==='start'&&!isCreator){initBoard();}
+else if(data.type==='move'){executeMove(data.from,data.to);}
+else if(data.type==='undo_req'){if(confirm('对方请求悔棋，是否同意？')){client.publish(topic,JSON.stringify({type:'undo_agree',sender:myId}));doUndo();}}
+else if(data.type==='undo_agree'){doUndo();}
+else if(data.type==='restart_req'){if(confirm('房主重新开始了游戏')){initBoard();}}
+else if(data.type==='exit'){alert('对方已退出房间');location.reload();}
 });
 }
 function doUndo(){
-if(history.length>0){
-const l=history.pop();
-board[l.from.r][l.from.c]=l.piece;board[l.to.r][l.to.c]=l.captured;
-turn=l.turnBefore;gameOver=false;winner=null;selected=null;legalMoves=[];draw();
-}
+if(history.length>0){const l=history.pop();board[l.from.r][l.from.c]=l.piece;board[l.to.r][l.to.c]=l.captured;turn=l.turnBefore;gameOver=false;winner=null;selected=null;legalMoves=[];draw();}
 }
 function drawBoard(){
 ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#e9c98b';ctx.fillRect(0,0,canvas.width,canvas.height);
@@ -190,7 +155,7 @@ ctx.strokeStyle='#5a3a1a';ctx.lineWidth=1.5;ctx.lineCap='round';
 for(let i=0;i<ROWS;i++){ctx.beginPath();ctx.moveTo(l,t+i*CELL);ctx.lineTo(r,t+i*CELL);ctx.stroke();}
 for(let i=0;i<COLS;i++){ctx.beginPath();const x=l+i*CELL;if(i===0||i===COLS-1){ctx.moveTo(x,t);ctx.lineTo(x,b);}else{ctx.moveTo(x,t);ctx.lineTo(x,t+4*CELL);ctx.moveTo(x,t+5*CELL);ctx.lineTo(x,b);}ctx.stroke();}
 ctx.beginPath();ctx.moveTo(l+3*CELL,t);ctx.lineTo(l+5*CELL,t+2*CELL);ctx.moveTo(l+5*CELL,t);ctx.lineTo(l+3*CELL,t+2*CELL);ctx.moveTo(l+3*CELL,t+7*CELL);ctx.lineTo(l+5*CELL,t+9*CELL);ctx.moveTo(l+5*CELL,t+7*CELL);ctx.lineTo(l+3*CELL,t+9*CELL);ctx.stroke();
-ctx.fillStyle='rgba(90,58,26,.65)';ctx.font='22px "KaiTi","SimSun",serif';ctx.textAlign='center';ctx.textBaseline='middle';
+ctx.fillStyle='rgba(90,58,26,.65)';ctx.font='22px "KaiTi",serif';ctx.textAlign='center';ctx.textBaseline='middle';
 if(myColor===BLACK){ctx.fillText('楚  河',l+6*CELL,t+4.5*CELL);ctx.fillText('汉  界',l+2*CELL,t+4.5*CELL);}
 else{ctx.fillText('楚  河',l+2*CELL,t+4.5*CELL);ctx.fillText('汉  界',l+6*CELL,t+4.5*CELL);}
 }
@@ -199,12 +164,10 @@ const rad=CELL*0.42;
 ctx.beginPath();ctx.arc(x,y,rad,0,Math.PI*2);ctx.fillStyle='#f8e6bd';ctx.fill();
 ctx.lineWidth=2;ctx.strokeStyle=p.color===RED?'#b3261e':'#222';ctx.stroke();
 ctx.beginPath();ctx.arc(x,y,rad-4,0,Math.PI*2);ctx.strokeStyle=p.color===RED?'rgba(179,38,30,.45)':'rgba(34,34,34,.35)';ctx.lineWidth=1;ctx.stroke();
-ctx.fillStyle=p.color===RED?'#b3261e':'#111';ctx.font=`bold ${Math.floor(CELL*0.48)}px "KaiTi","SimSun",serif`;ctx.fillText(NAMES[p.color][p.type],x,y+1);
+ctx.fillStyle=p.color===RED?'#b3261e':'#111';ctx.font=`bold ${Math.floor(CELL*0.48)}px "KaiTi",serif`;ctx.fillText(NAMES[p.color][p.type],x,y+1);
 }
 function drawPieces(){
-for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
-const p=board[r][c];if(p){const vr=getViewR(r),vc=getViewC(c);drawSinglePiece(MARGIN+vc*CELL,MARGIN+vr*CELL,p);}
-}
+for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const p=board[r][c];if(p){const vr=getViewR(r),vc=getViewC(c);drawSinglePiece(MARGIN+vc*CELL,MARGIN+vr*CELL,p);}}
 }
 function drawAnimation(){
 if(!animating||!animData)return;
@@ -239,24 +202,12 @@ if(Math.hypot(x-(MARGIN+c*CELL),y-(MARGIN+r*CELL))>CELL*0.55)return;
 if(myColor===BLACK){r=9-r;c=8-c;}
 handleClick(r,c);
 });
-document.getElementById('createBtn').addEventListener('click',()=>{
-const room=document.getElementById('roomInput').value.trim();
-if(!room){alert('请输入房间号');return;}
-myColor=RED;document.getElementById('showRoom').textContent=room;
-document.getElementById('lobby').style.display='none';document.getElementById('waiting').style.display='flex';
-setupMQTT('chess_'+room,true);
-});
-document.getElementById('joinBtn').addEventListener('click',()=>{
-const room=document.getElementById('roomInput').value.trim();
-if(!room){alert('请输入房间号');return;}
-myColor=BLACK;document.getElementById('showRoom').textContent=room;
-document.getElementById('lobby').style.display='none';document.getElementById('waiting').style.display='flex';
-setupMQTT('chess_'+room,false);
-});
+document.getElementById('createBtn').addEventListener('click',()=>{const room=document.getElementById('roomInput').value.trim();if(!room){alert('请输入房间号');return;}myColor=RED;document.getElementById('showRoom').textContent=room;document.getElementById('lobby').style.display='none';document.getElementById('waiting').style.display='flex';setupMQTT('chess_'+room,true);});
+document.getElementById('joinBtn').addEventListener('click',()=>{const room=document.getElementById('roomInput').value.trim();if(!room){alert('请输入房间号');return;}myColor=BLACK;document.getElementById('showRoom').textContent=room;document.getElementById('lobby').style.display='none';document.getElementById('waiting').style.display='flex';setupMQTT('chess_'+room,false);});
 document.getElementById('undoBtn').addEventListener('click',()=>{if(client)client.publish(roomTopic,JSON.stringify({type:'undo_req',sender:myId}));});
 document.getElementById('restartBtn').addEventListener('click',()=>{if(client)client.publish(roomTopic,JSON.stringify({type:'restart_req',sender:myId}));initBoard();});
-document.getElementById('exitBtn').addEventListener('click',()=>{if(client)client.publish(roomTopic,JSON.stringify({type:'exit',sender:myId}));window.location.reload();});
-document.getElementById('cancelBtn').addEventListener('click',()=>{window.location.reload();});
+document.getElementById('exitBtn').addEventListener('click',()=>{if(client)client.publish(roomTopic,JSON.stringify({type:'exit',sender:myId}));location.reload();});
+document.getElementById('cancelBtn').addEventListener('click',()=>{location.reload();});
 })();
 </script>
 </body>
