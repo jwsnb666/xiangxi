@@ -4,13 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>双人对战</title>
-<script src="sfx.js"></script>
 <style>
 body{margin:0;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#2b2118;font-family:system-ui;color:#f5e6c8}#status{min-height:24px;margin:6px 0;font-size:16px;color:#ffd166}canvas{background:#e9c98b;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.5);max-width:96vw;height:auto;touch-action:manipulation}.controls{margin:12px 0 20px;display:flex;gap:12px}button{padding:8px 24px;border:none;border-radius:6px;background:#c0392b;color:white;font-size:15px;cursor:pointer}button:disabled{background:#555;cursor:not-allowed}#undoBtn{background:#2980b9}#menuBtn{background:#27ae60}
 </style>
 </head>
 <body>
-<h1>中国象棋 · 双人对战</h1>
+<h1>双人对战</h1>
 <div id="status"></div>
 <canvas id="board" width="560" height="620"></canvas>
 <div class="controls"><button id="undoBtn" disabled>悔棋</button><button id="restart">重新开始</button><button id="menuBtn">返回菜单</button></div>
@@ -20,6 +19,16 @@ const COLS=9,ROWS=10,CELL=60,MARGIN=40,RED='r',BLACK='b',ANIM=200;
 const NAMES={r:{K:'帅',A:'仕',B:'相',N:'傌',R:'俥',C:'炮',P:'兵'},b:{K:'将',A:'士',B:'象',N:'馬',R:'車',C:'砲',P:'卒'}};
 const canvas=document.getElementById('board'),ctx=canvas.getContext('2d'),statusEl=document.getElementById('status'),undoBtn=document.getElementById('undoBtn');
 let board,turn,selected,legalMoves,gameOver,winner,history=[],animating=false,animData=null;
+
+const audioCache={};let currentAudio=null;
+function playSfx(name){
+const url=name+'.mp3';
+if(!audioCache[name]){audioCache[name]=new Audio(url);audioCache[name].preload='auto';}
+const audio=audioCache[name];
+if(currentAudio&&currentAudio!==audio){currentAudio.pause();currentAudio.currentTime=0;}
+try{audio.currentTime=0;audio.play().catch(()=>{});currentAudio=audio;}catch(e){}
+}
+
 const put=(r,c,type,color)=>board[r][c]={type,color};
 const inBoard=(r,c)=>r>=0&&r<ROWS&&c>=0&&c<COLS;
 function initBoard(){
@@ -92,11 +101,31 @@ else{
 turn=turn===RED?BLACK:RED;
 const oppMoves=getAllLegalMoves(turn),checked=isInCheck(board,turn);
 if(oppMoves.length===0){isWin=true;}
-else if(checked){SFX.play('check');}
-else if(cap){SFX.play('capture');}
-else{SFX.play('move');}
+else if(checked){playSfx('check');}
+else if(cap){playSfx('capture');}
+else{playSfx('move');}
 }
-if(isWin){gameOver=true;winner=moving.color;SFX.play('win');}
+if(isWin){
+gameOver=true;winner=moving.color;
+// 核心逻辑：绝杀瞬间，现场数车和炮
+let rCars=0,rCannons=0,bCars=0,bCannons=0;
+for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+const p=board[r][c];
+if(p){
+if(p.color===RED){if(p.type==='R')rCars++;if(p.type==='C')rCannons++;}
+else{if(p.type==='R')bCars++;if(p.type==='C')bCannons++;}
+}
+}
+if(winner===RED){
+if(rCars>=2)playSfx('shuangchecuo');
+else if(rCannons>=2)playSfx('chongpao');
+else playSfx('win');
+}else{
+if(bCars>=2)playSfx('shuangchecuo');
+else if(bCannons>=2)playSfx('chongpao');
+else playSfx('win');
+}
+}
 draw();
 }
 function undo(){
