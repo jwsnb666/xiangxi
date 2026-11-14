@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>走法标定器</title>
+<style>
+body{margin:0;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#2b2118;font-family:system-ui,"Microsoft YaHei",sans-serif;color:#f5e6c8;padding:15px}
+#panel{background:#3a2c1f;padding:15px;border-radius:8px;display:flex;gap:12px;margin-bottom:15px;border:2px solid #8e44ad;flex-wrap:wrap;justify-content:center;align-items:center}
+#panel input{padding:6px;border-radius:4px;border:1px solid #5a3a1a;background:#2b2118;color:#fff;font-size:14px;text-align:center}
+button{padding:8px 16px;border:none;border-radius:6px;color:white;font-size:14px;font-weight:bold;cursor:pointer}
+.btn-pos{background:#8e44ad}.btn-pos.active{background:#27ae60}
+.btn-export{background:#2980b9}
+.btn-back{background:#555}
+canvas{background:#e9c98b;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.5);max-width:100%;height:auto;touch-action:manipulation}
+#hint{color:#ffd166;margin-bottom:10px;font-size:15px;min-height:22px;text-align:center;max-width:560px}
+</style>
+</head>
+<body>
+<h1>🎯 手工标定走法器</h1>
+<div id="hint">点击棋盘标定“可走位置”，再点取消。</div>
+<div id="panel">
+<input id="mName" placeholder="模组名字" value="自定义棋子" style="width:100px">
+<input id="mChar" placeholder="汉字" value="神" maxlength="1" style="width:40px">
+<button id="posModeBtn" class="btn-pos">📍 设初始位置</button>
+<button id="exportBtn" class="btn-export">💾 导出模组</button>
+<button class="btn-back" onclick="window.location.href='index.html'">返回菜单</button>
+</div>
+<canvas id="board" width="560" height="620"></canvas>
+
+<script>
+(()=>{
+const COLS=9,ROWS=10,CELL=60,MARGIN=40;
+const canvas=document.getElementById('board'),ctx=canvas.getContext('2d'),hint=document.getElementById('hint');
+const nameInput=document.getElementById('mName'),charInput=document.getElementById('mChar');
+let posMode=false;
+const centerR=4,centerC=4;
+let offsets=[];
+let initPos={black:[],red:[]};
+const inBoard=(r,c)=>r>=0&&r<ROWS&&c>=0&&c<COLS;
+
+function drawBoard(){
+ctx.clearRect(0,0,canvas.width,canvas.height);
+ctx.fillStyle='#e9c98b';ctx.fillRect(0,0,canvas.width,canvas.height);
+const l=MARGIN,t=MARGIN,r=MARGIN+(COLS-1)*CELL,b=MARGIN+(ROWS-1)*CELL;
+ctx.strokeStyle='#5a3a1a';ctx.lineWidth=1.5;ctx.lineCap='round';
+for(let i=0;i<ROWS;i++){ctx.beginPath();ctx.moveTo(l,t+i*CELL);ctx.lineTo(r,t+i*CELL);ctx.stroke();}
+for(let i=0;i<COLS;i++){
+ctx.beginPath();const x=l+i*CELL;
+if(i===0||i===COLS-1){ctx.moveTo(x,t);ctx.lineTo(x,b);}
+else{ctx.moveTo(x,t);ctx.lineTo(x,t+4*CELL);ctx.moveTo(x,t+5*CELL);ctx.lineTo(x,b);}
+ctx.stroke();
+}
+ctx.beginPath();ctx.moveTo(l+3*CELL,t);ctx.lineTo(l+5*CELL,t+2*CELL);ctx.moveTo(l+5*CELL,t);ctx.lineTo(l+3*CELL,t+2*CELL);ctx.moveTo(l+3*CELL,t+7*CELL);ctx.lineTo(l+5*CELL,t+9*CELL);ctx.moveTo(l+5*CELL,t+7*CELL);ctx.lineTo(l+3*CELL,t+9*CELL);ctx.stroke();
+}
+
+function draw(){
+drawBoard();
+if(posMode){
+ctx.fillStyle='rgba(142,68,173,.6)';
+initPos.black.forEach(p=>{ctx.beginPath();ctx.arc(MARGIN+p[1]*CELL,MARGIN+p[0]*CELL,CELL*0.4,0,Math.PI*2);ctx.fill();});
+initPos.red.forEach(p=>{ctx.beginPath();ctx.arc(MARGIN+p[1]*CELL,MARGIN+p[0]*CELL,CELL*0.4,0,Math.PI*2);ctx.fill();});
+}
+if(!posMode){
+ctx.fillStyle='rgba(20,150,80,.8)';
+offsets.forEach(o=>{
+const nr=centerR+o[0],nc=centerC+o[1];
+if(inBoard(nr,nc)){ctx.beginPath();ctx.arc(MARGIN+nc*CELL,MARGIN+nr*CELL,8,0,Math.PI*2);ctx.fill();}
+});
+}
+const x=MARGIN+centerC*CELL,y=MARGIN+centerR*CELL;
+ctx.beginPath();ctx.arc(x,y,CELL*0.42,0,Math.PI*2);ctx.fillStyle='#f8e6bd';ctx.fill();
+ctx.lineWidth=2;ctx.strokeStyle='#b3261e';ctx.stroke();
+ctx.fillStyle='#b3261e';ctx.font=`bold ${Math.floor(CELL*0.48)}px "KaiTi","SimSun",serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+ctx.fillText(charInput.value.trim()||'神',x,y+1);
+}
+
+canvas.addEventListener('click',e=>{
+const rect=canvas.getBoundingClientRect();
+const x=(e.clientX-rect.left)*(canvas.width/rect.width);
+const y=(e.clientY-rect.top)*(canvas.height/rect.height);
+const c=Math.round((x-MARGIN)/CELL),r=Math.round((y-MARGIN)/CELL);
+if(!inBoard(r,c))return;
+
+if(posMode){
+if(!initPos.black.some(p=>p[0]===r&&p[1]===c)){
+initPos.black.push([r,c]);
+initPos.red.push([9-r,8-c]);
+}
+}else{
+if(r===centerR&&c===centerC)return;
+const dr=r-centerR,dc=c-centerC;
+const idx=offsets.findIndex(o=>o[0]===dr&&o[1]===dc);
+if(idx!==-1){offsets.splice(idx,1);}else{offsets.push([dr,dc]);}
+}
+draw();
+});
+
+charInput.addEventListener('input',draw);
+
+document.getElementById('posModeBtn').addEventListener('click',(e)=>{
+posMode=!posMode;
+e.target.classList.toggle('active');
+hint.textContent=posMode?'📍 初始位置模式：点棋盘添加位置。':'点击棋盘标定“可走位置”，再点取消。';
+e.target.textContent=posMode?'✅ 完成设位置':'📍 设初始位置';
+draw();
+});
+
+document.getElementById('exportBtn').addEventListener('click',()=>{
+if(offsets.length===0){alert('请至少点一个走法绿点！');return;}
+if(initPos.black.length===0){initPos.black=[[2,2]];initPos.red=[[7,6]];}
+const mName=nameInput.value.trim()||'自定义';
+const mChar=charInput.value.trim()||'神';
+const modData={
+id:'mod_'+Date.now().toString(36),
+name:mName,
+char:mChar,
+initPos:{black:initPos.black,red:initPos.red},
+moveOffsets:offsets
+};
+const dataStr="data:text/json;charset=utf-8,"+encodeURIComponent(JSON.stringify(modData,null,2));
+const a=document.createElement('a');
+a.setAttribute("href",dataStr);
+a.setAttribute("download",`${mName}_${mChar}.json`);
+document.body.appendChild(a);a.click();a.remove();
+});
+
+draw();
+})();
+</script>
+</body>
+</html>
