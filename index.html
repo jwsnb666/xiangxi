@@ -40,8 +40,7 @@ button:active{transform:translateY(1px)}
 </div>
 
 <script>
-/* 有 _tx 皮肤版本的入口写在这里，以后做了新的往数组里加一项即可 */
-const TX_PAGES = ['friends', 'ai', 'online', 'jieqi', 'puzzle', 'mod', 'mod2'];
+const TX_PAGES = ['friends', 'ai', 'online', 'jieqi', 'puzzle', 'mod', 'sandbox'];
 const SKIN_KEY = 'xz_skin';
 
 function curSkin(){ return localStorage.getItem(SKIN_KEY) || 'default'; }
@@ -50,10 +49,13 @@ function isMobile(){
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 }
 
-/* page: 图标去掉扩展名的名字；mobileSplit: 手机端是否要走 xxx2.html */
 function nav(page, mobileSplit){
   if (curSkin() === 'tx' && TX_PAGES.indexOf(page) !== -1) {
-    location.href = page + '_tx.html';
+    if(mobileSplit && isMobile()){
+      location.href = page + '2_tx.html';
+    }else{
+      location.href = page + '_tx.html';
+    }
     return;
   }
   if (mobileSplit && isMobile()) {
