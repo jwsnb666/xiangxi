@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>换皮肤 · 中国象棋</title>
+<style>
+body{margin:0;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#2b2118;font-family:system-ui,"Microsoft YaHei",sans-serif;color:#f5e6c8;background-image:radial-gradient(circle at center,#3a2c1f 0%,#1a130d 100%);padding:20px}
+h1{font-size:30px;margin:0 0 10px;color:#ffd166;letter-spacing:4px;text-shadow:0 4px 15px rgba(0,0,0,.8)}
+.tip{font-size:13px;color:#b8a684;margin:0 0 24px;text-align:center;line-height:1.6}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;width:100%;max-width:460px}
+.card{position:relative;border-radius:12px;padding:16px;cursor:pointer;background:rgba(255,255,255,.05);border:2px solid rgba(255,255,255,.12);transition:all .18s;box-shadow:0 6px 16px rgba(0,0,0,.35)}
+.card:hover{transform:translateY(-3px);border-color:rgba(255,209,102,.45)}
+.card.on{border-color:#ffd166;background:rgba(255,209,102,.12);box-shadow:0 0 0 2px rgba(255,209,102,.25),0 8px 20px rgba(0,0,0,.5)}
+.swatch{height:46px;border-radius:8px;margin-bottom:10px;box-shadow:inset 0 -3px 8px rgba(0,0,0,.4)}
+.name{font-size:16px;font-weight:bold;letter-spacing:1px}
+.desc{font-size:12px;color:#b8a684;margin-top:6px;line-height:1.5}
+.badge{position:absolute;top:10px;right:10px;font-size:11px;padding:3px 8px;border-radius:20px;background:#ffd166;color:#3a2c1f;font-weight:bold}
+.bar{display:flex;gap:12px;margin-top:26px}
+.bar button{padding:13px 26px;border:none;border-radius:10px;color:#fff;font-size:16px;font-weight:bold;cursor:pointer;letter-spacing:1px;box-shadow:0 6px 15px rgba(0,0,0,.4);transition:all .2s}
+.bar button:hover{transform:translateY(-2px);filter:brightness(1.1)}
+.bar button:active{transform:translateY(1px)}
+#reset{background:linear-gradient(135deg,#7f8c8d,#5d6d7e)}
+#back{background:linear-gradient(135deg,#c0392b,#962d22)}
+.note{margin-top:20px;font-size:12px;color:#9a8a6b;text-align:center;line-height:1.8;max-width:460px}
+</style>
+</head>
+<body>
+<h1>换皮肤</h1>
+<p class="tip">选好后回大厅，点「双人对战」「人机对战」会自动跳去带 _tx 的版本<br>没做 _tx 版本的入口，仍然进原版</p >
+<div class="grid" id="grid"></div>
+<div class="bar">
+  <button id="reset">恢复默认</button>
+  <button id="back" onclick="location.href='index.html'">返回大厅</button>
+</div>
+<div class="note" id="note"></div>
+
+<script>
+const SKINS = [
+  { id:'default', name:'经典木纹', desc:'原始配色，全部入口进默认版本', c1:'#8b5a2b', c2:'#5a3a1b' },
+  { id:'tx',      name:'国风水墨', desc:'已适配入口：双人对战、人机对战', c1:'#3f6b52', c2:'#1d3a2a' }
+];
+const TX_PAGES = ['friends','ai'];
+const KEY = 'xz_skin';
+
+function current(){ return localStorage.getItem(KEY) || 'default'; }
+
+function render(){
+  const cur = current();
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  SKINS.forEach(s => {
+    const div = document.createElement('div');
+    div.className = 'card' + (s.id === cur ? ' on' : '');
+    div.innerHTML = `
+      <div class="swatch" style="background:linear-gradient(135deg,${s.c1},${s.c2})"></div>
+      <div class="name">${s.name}</div>
+      <div class="desc">${s.desc}</div>
+      ${s.id === cur ? '<div class="badge">当前</div>' : ''}
+    `;
+    div.onclick = () => { localStorage.setItem(KEY, s.id); render(); };
+    grid.appendChild(div);
+  });
+
+  const n = document.getElementById('note');
+  n.innerHTML = cur === 'tx'
+    ? '当前皮肤下的跳转：' + TX_PAGES.map(p => `${p}.html → <b>${p}_tx.html</b>`).join(' ｜ ')
+    : '当前为默认皮肤，全部入口走原文件';
+}
+
+document.getElementById('reset').onclick = () => { localStorage.setItem(KEY,'default'); render(); };
+render();
+</script>
+</body>
+</html>

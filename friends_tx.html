@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>石桌象棋·双人对弈</title>
+<script src="sfx.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{min-height:100vh;background:linear-gradient(180deg,#2c3e50 0%,#1a252f 100%);font-family:"Microsoft YaHei",system-ui,sans-serif;color:#e0d5c5;display:flex;flex-direction:column;align-items:center;padding:18px 0;touch-action:manipulation}
+h1{font-size:26px;color:#d4af37;margin-bottom:14px;letter-spacing:2px;text-shadow:0 2px 4px rgba(0,0,0,.5)}
+.stone-table{position:relative;width:690px;height:690px;max-width:95vw;max-height:95vw;display:flex;justify-content:center;align-items:center;border-radius:50%;background:radial-gradient(ellipse at 25% 20%,rgba(255,255,255,.12) 0%,transparent 45%),radial-gradient(ellipse at 75% 80%,rgba(0,0,0,.35) 0%,transparent 50%),linear-gradient(145deg,#888 0%,#6e6e6e 50%,#555 100%);box-shadow:0 25px 60px rgba(0,0,0,.6),inset 0 2px 5px rgba(255,255,255,.25),inset 0 -4px 10px rgba(0,0,0,.4)}
+.stone-table::before{content:'';position:absolute;top:10px;left:10px;right:10px;bottom:10px;border-radius:50%;background:linear-gradient(145deg,#7a7a7a,#5e5e5e);box-shadow:inset 0 2px 8px rgba(0,0,0,.3);z-index:0}
+#status{margin:14px 0;font-size:17px;font-weight:bold;min-height:24px;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+canvas{position:relative;z-index:1;border-radius:6px;box-shadow:inset 0 0 20px rgba(0,0,0,.3),0 5px 15px rgba(0,0,0,.4);max-width:85%;height:auto;border:2px solid #444}
+.controls{margin:16px 0;display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+button{padding:10px 22px;border:none;border-radius:6px;color:#fff;font-size:15px;font-weight:bold;cursor:pointer;transition:transform .1s;box-shadow:0 4px 10px rgba(0,0,0,.3);-webkit-tap-highlight-color:transparent}
+button:active{transform:scale(.96)}
+#undoBtn{background:#e67e22}
+#restartBtn{background:#c0392b}
+</style>
+</head>
+<body>
+<a href="index.html" style="position:fixed; top:20px; right:20px; color:#fff; background:rgba(200,0,0,0.8); padding:8px 15px; text-decoration:none; border-radius:5px; border:2px solid #fff; z-index:9999; font-family:'KaiTi'; font-weight:bold; box-shadow:0 0 10px red;">退出主菜单</a >
+<h1>石桌象棋 · 双人对弈</h1>
+<div class="stone-table"><canvas id="board" width="560" height="620"></canvas></div>
+<div id="status"></div>
+<div class="controls"><button id="undoBtn">悔棋</button><button id="restartBtn">重新开始</button></div>
+<script>
+(()=>{
+const COLS=9,ROWS=10,CELL=60,MARGIN=40,RED='r',BLACK='b',ANIM=180,NAMES={r:{K:'帅',A:'仕',B:'相',N:'傌',R:'俥',C:'炮',P:'兵'},b:{K:'将',A:'士',B:'象',N:'馬',R:'車',C:'砲',P:'卒'}};
+const canvas=document.getElementById('board'),ctx=canvas.getContext('2d'),statusEl=document.getElementById('status');
+let board,turn,selected,legalMoves,gameOver,winner,animating=false,animData=null,lastMove=null,history=[];
+const init=[['bR','bN','bB','bA','bK','bA','bB','bN','bR'],[null,null,null,null,null,null,null,null,null],[null,'bC',null,null,null,null,null,'bC',null],['bP',null,'bP',null,'bP',null,'bP',null,'bP'],[null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null,null],['rP',null,'rP',null,'rP',null,'rP',null,'rP'],[null,'rC',null,null,null,null,null,'rC',null],[null,null,null,null,null,null,null,null,null],['rR','rN','rB','rA','rK','rA','rB','rN','rR']];
+function initBoard(){board=Array.from({length:ROWS},()=>Array(COLS).fill(null));for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const p=init[r][c];if(p)board[r][c]={type:p[1],color:p[0]}}turn=RED;selected=null;legalMoves=[];gameOver=false;winner=null;animating=false;animData=null;lastMove=null;history=[];draw();}
+const inBoard=(r,c)=>r>=0&&r<ROWS&&c>=0&&c<COLS;
+function getPseudoMoves(b,r,c){const p=b[r][c];if(!p)return[];const{type,color}=p,moves=[],dirs=[[-1,0],[1,0],[0,-1],[0,1]];const add=(nr,nc)=>{if(!inBoard(nr,nc))return;const t=b[nr][nc];if(!t||t.color!==color)moves.push([nr,nc])};
+if(type==='R'){for(const[dr,dc]of dirs){let nr=r+dr,nc=c+dc;while(inBoard(nr,nc)){const t=b[nr][nc];if(!t)moves.push([nr,nc]);else{if(t.color!==color)moves.push([nr,nc]);break}nr+=dr;nc+=dc}}}
+else if(type==='C'){for(const[dr,dc]of dirs){let nr=r+dr,nc=c+dc,j=false;while(inBoard(nr,nc)){const t=b[nr][nc];if(!j){if(!t)moves.push([nr,nc]);else j=true}else if(t){if(t.color!==color)moves.push([nr,nc]);break}nr+=dr;nc+=dc}}}
+else if(type==='N'){const j=[[-2,-1,-1,0],[-2,1,-1,0],[2,-1,1,0],[2,1,1,0],[-1,-2,0,-1],[1,-2,0,-1],[-1,2,0,1],[1,2,0,1]];for(const[dr,dc,lr,lc]of j){const nr=r+dr,nc=c+dc;if(!inBoard(nr,nc)||b[r+lr][c+lc])continue;const t=b[nr][nc];if(!t||t.color!==color)moves.push([nr,nc])}}
+else if(type==='B'){for(const[dr,dc]of[[-2,-2],[-2,2],[2,-2],[2,2]]){const nr=r+dr,nc=c+dc;if(!inBoard(nr,nc))continue;if(color===RED&&nr<5)continue;if(color===BLACK&&nr>4)continue;if(b[r+dr/2][c+dc/2])continue;const t=b[nr][nc];if(!t||t.color!==color)moves.push([nr,nc])}}
+else if(type==='A'){for(const[dr,dc]of[[-1,-1],[-1,1],[1,-1],[1,1]]){const nr=r+dr,nc=c+dc;if(!inBoard(nr,nc))continue;if(color===RED){if(nr<7||nr>9||nc<3||nc>5)continue}else{if(nr<0||nr>2||nc<3||nc>5)continue}const t=b[nr][nc];if(!t||t.color!==color)moves.push([nr,nc])}}
+else if(type==='K'){for(const[dr,dc]of dirs){const nr=r+dr,nc=c+dc;if(!inBoard(nr,nc))continue;if(color===RED){if(nr<7||nr>9||nc<3||nc>5)continue}else{if(nr<0||nr>2||nc<3||nc>5)continue}const t=b[nr][nc];if(!t||t.color!==color)moves.push([nr,nc])}}
+else if(type==='P'){const f=color===RED?-1:1;add(r+f,c);if(color===RED?r<=4:r>=5){add(r,c-1);add(r,c+1)}}
+return moves;}
+function findKing(b,color){for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const p=b[r][c];if(p&&p.color===color&&p.type==='K')return[r,c]}return null}
+function isInCheck(b,color){const k=findKing(b,color);if(!k)return true;const[kr,kc]=k,enemy=color===RED?BLACK:RED,ek=findKing(b,enemy);
+if(ek){const[er,ec]=ek;if(ec===kc){let bl=false,st=Math.min(kr,er)+1,ed=Math.max(kr,er);for(let r=st;r<ed;r++)if(b[r][kc]){bl=true;break}if(!bl)return true}}
+for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const p=b[r][c];if(!p||p.color!==enemy)continue;if(getPseudoMoves(b,r,c).some(([mr,mc])=>mr===kr&&mc===kc))return true}
+return false;}
+function getLegalMoves(b,r,c){const p=b[r][c];if(!p)return[];const res=[];for(const[nr,nc]of getPseudoMoves(b,r,c)){const cap=b[nr][nc];b[nr][nc]=p;b[r][c]=null;if(!isInCheck(b,p.color))res.push([nr,nc]);b[r][c]=p;b[nr][nc]=cap}return res}
+function getAllLegalMoves(b,color){const all=[];for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const p=b[r][c];if(p&&p.color===color)for(const[nr,nc]of getLegalMoves(b,r,c))all.push({from:[r,c],to:[nr,nc]})}return all}
+function playSound(t){try{if(typeof SFX!=='undefined'&&SFX.play)SFX.play(t)}catch(e){}}
+function handleClick(r,c){if(gameOver||animating||!inBoard(r,c))return;const p=board[r][c];
+if(selected){if(p&&p.color===turn){selected={r,c};legalMoves=getLegalMoves(board,r,c);draw();return;}
+if(legalMoves.some(([mr,mc])=>mr===r&&mc===c)){const from=selected,to={r,c},moving=board[from.r][from.c],cap=board[to.r][to.c];
+history.push({from:[from.r,from.c],to:[to.r,to.c],piece:moving,captured:cap});selected=null;legalMoves=[];startMoveAnimation(moving,from,to,cap);return;}
+selected=null;legalMoves=[];draw();return;}
+if(p&&p.color===turn){selected={r,c};legalMoves=getLegalMoves(board,r,c);draw();}}
+function startMoveAnimation(piece,from,to,cap){animating=true;animData={piece,from,to,cap,startTime:performance.now()};board[from.r][from.c]=null;
+function step(now){if(!animating)return;if(now-animData.startTime<ANIM){draw();requestAnimationFrame(step);}
+else{board[animData.to.r][animData.to.c]=animData.piece;animating=false;animData=null;lastMove={from:{r:from.r,c:from.c},to:{r:to.r,c:to.c}};finishMove(piece,to,cap);}}
+requestAnimationFrame(step);}
+function finishMove(moving,to,cap){let win=false;
+if(cap&&cap.type==='K'){win=true;}
+else{turn=turn===RED?BLACK:RED;const om=getAllLegalMoves(board,turn),ck=isInCheck(board,turn);
+if(om.length===0)win=true;
+else if(ck)playSound('check');
+else if(cap)playSound('capture');
+else playSound('move');}
+if(win){gameOver=true;winner=moving.color;playSound('win');}
+draw();}
+function drawBoard(){ctx.clearRect(0,0,canvas.width,canvas.height);
+const g=ctx.createLinearGradient(0,0,canvas.width,canvas.height);
+g.addColorStop(0,'#d0d0d0');g.addColorStop(0.5,'#c2c2c2');g.addColorStop(1,'#b8b8b8');
+ctx.fillStyle=g;ctx.fillRect(0,0,canvas.width,canvas.height);
+for(let i=0;i<700;i++){const x=Math.random()*canvas.width,y=Math.random()*canvas.height;ctx.fillStyle=`rgba(${Math.random()*30+80},${Math.random()*30+80},${Math.random()*30+80},0.08)`;ctx.fillRect(x,y,1.5,1.5)}
+const l=MARGIN,t=MARGIN,r=MARGIN+(COLS-1)*CELL,b=MARGIN+(ROWS-1)*CELL;
+ctx.strokeStyle='#3a3a3a';ctx.lineWidth=1.8;ctx.lineCap='round';
+for(let i=0;i<ROWS;i++){ctx.beginPath();ctx.moveTo(l,t+i*CELL);ctx.lineTo(r,t+i*CELL);ctx.stroke()}
+for(let i=0;i<COLS;i++){const x=l+i*CELL;ctx.beginPath();if(i===0||i===COLS-1){ctx.moveTo(x,t);ctx.lineTo(x,b)}else{ctx.moveTo(x,t);ctx.lineTo(x,t+4*CELL);ctx.moveTo(x,t+5*CELL);ctx.lineTo(x,b)}ctx.stroke()}
+ctx.beginPath();ctx.moveTo(l+3*CELL,t);ctx.lineTo(l+5*CELL,t+2*CELL);ctx.moveTo(l+5*CELL,t);ctx.lineTo(l+3*CELL,t+2*CELL);ctx.moveTo(l+3*CELL,t+7*CELL);ctx.lineTo(l+5*CELL,t+9*CELL);ctx.moveTo(l+5*CELL,t+7*CELL);ctx.lineTo(l+3*CELL,t+9*CELL);ctx.stroke();
+ctx.fillStyle='rgba(58,58,58,0.7)';ctx.font='bold 24px "KaiTi",serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('楚  河',l+2*CELL,t+4.5*CELL);ctx.fillText('汉  界',l+6*CELL,t+4.5*CELL);}
+function drawPiece(x,y,p){const rad=CELL*0.42;ctx.beginPath();ctx.arc(x,y,rad,0,Math.PI*2);
+const gr=ctx.createRadialGradient(x-rad*0.3,y-rad*0.3,rad*0.1,x,y,rad);
+gr.addColorStop(0,'#fff5e6');gr.addColorStop(0.5,'#f5deb3');gr.addColorStop(1,'#d4a574');
+ctx.fillStyle=gr;ctx.fill();ctx.lineWidth=2;ctx.strokeStyle=p.color===RED?'#b3261e':'#222';ctx.stroke();
+ctx.beginPath();ctx.arc(x,y,rad-4,0,Math.PI*2);ctx.strokeStyle=p.color===RED?'rgba(179,38,30,0.45)':'rgba(34,34,34,0.35)';ctx.lineWidth=1;ctx.stroke();
+ctx.fillStyle=p.color===RED?'#b3261e':'#111';ctx.font=`bold ${Math.floor(CELL*0.48)}px "KaiTi",serif`;ctx.fillText(NAMES[p.color][p.type],x,y+1);}
+function drawPieces(){for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const p=board[r][c];if(p)drawPiece(MARGIN+c*CELL,MARGIN+r*CELL,p)}}
+function drawLast(){if(!lastMove)return;
+const mk=(rr,cc,col)=>{const x=MARGIN+cc*CELL,y=MARGIN+rr*CELL,s=CELL*0.33;ctx.strokeStyle=col;ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(x-s,y-s);ctx.lineTo(x+s,y-s);ctx.lineTo(x+s,y+s);ctx.lineTo(x-s,y+s);ctx.closePath();ctx.stroke();};
+mk(lastMove.from.r,lastMove.from.c,'rgba(80,120,200,0.45)');
+mk(lastMove.to.r,lastMove.to.c,'rgba(80,120,200,0.8)');}
+function drawAnim(){if(!animating||!animData)return;const e=performance.now()-animData.startTime,t=Math.min(e/ANIM,1),ea=1-Math.pow(1-t,3);
+const sx=MARGIN+animData.from.c*CELL,sy=MARGIN+animData.from.r*CELL,ex=MARGIN+animData.to.c*CELL,ey=MARGIN+animData.to.r*CELL;
+drawPiece(sx+(ex-sx)*ea,sy+(ey-sy)*ea,animData.piece);}
+function drawSelect(){if(animating)return;
+for(const[r,c]of legalMoves){const x=MARGIN+c*CELL,y=MARGIN+r*CELL;if(board[r][c]){ctx.beginPath();ctx.arc(x,y,CELL*0.48,0,Math.PI*2);ctx.strokeStyle='rgba(20,150,80,0.85)';ctx.lineWidth=4;ctx.stroke();}else{ctx.beginPath();ctx.arc(x,y,6,0,Math.PI*2);ctx.fillStyle='rgba(20,150,80,0.75)';ctx.fill();}}
+if(selected){const x=MARGIN+selected.c*CELL,y=MARGIN+selected.r*CELL;ctx.beginPath();ctx.arc(x,y,CELL*0.48,0,Math.PI*2);ctx.strokeStyle='#f1c40f';ctx.lineWidth=4;ctx.stroke();}}
+function updateStatus(){if(gameOver){statusEl.textContent=winner===RED?'红方胜！':'黑方胜！';statusEl.style.color='#ffd166';return;}
+let t=turn===RED?'红方走棋':'黑方走棋';if(isInCheck(board,turn))t+=' · 将军！';
+statusEl.textContent=t;statusEl.style.color=turn===RED?'#ff7675':'#8ecae6';}
+function draw(){drawBoard();drawLast();drawPieces();drawSelect();drawAnim();updateStatus();}
+canvas.addEventListener('click',e=>{if(animating)return;const rect=canvas.getBoundingClientRect(),x=(e.clientX-rect.left)*(canvas.width/rect.width),y=(e.clientY-rect.top)*(canvas.height/rect.height);
+const c=Math.round((x-MARGIN)/CELL),r=Math.round((y-MARGIN)/CELL);if(!inBoard(r,c))return;if(Math.hypot(x-(MARGIN+c*CELL),y-(MARGIN+r*CELL))>CELL*0.55)return;handleClick(r,c);});
+document.getElementById('undoBtn').addEventListener('click',()=>{if(animating||history.length===0)return;
+const m=history.pop();board[m.from[0]][m.from[1]]=m.piece;board[m.to[0]][m.to[1]]=m.captured;
+turn=m.piece.color;gameOver=false;winner=null;selected=null;legalMoves=[];
+lastMove=history.length?{from:{r:history[history.length-1].from[0],c:history[history.length-1].from[1]},to:{r:history[history.length-1].to[0],c:history[history.length-1].to[1]}}:null;
+draw();});
+document.getElementById('restartBtn').addEventListener('click',initBoard);
+initBoard();
+})();
+</script>
+</body>
+</html>
